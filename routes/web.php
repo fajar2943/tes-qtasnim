@@ -28,6 +28,7 @@ Route::delete('/products/destroy', [ProductController::class, 'destroy']);
 // Route::get('/transactions/{id}/edit', [TransactionController::class, 'edit']);
 // Route::put('/transactions/update', [TransactionController::class, 'update']);
 // Route::delete('/transactions/destroy', [TransactionController::class, 'destroy']);
+Route::get('/transactions/filters', [TransactionController::class, 'filter']);
 
 Route::resource('/transactions', TransactionController::class);
 Route::resource('/categories', CategoryController::class);

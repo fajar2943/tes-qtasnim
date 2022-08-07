@@ -18,8 +18,10 @@ class TransactionResource extends JsonResource
             'id' => $this->id,
             'product_id' => $this->product->id,
             'product_name' => $this->product->name,
+            'category_name' => $this->product->category->name,
             'total_sales' => $this->total_sales,
             'date' => $this->date,
+            'date_convert' => date('d M Y', strtotime($this->date)),
         ];
     }
 }

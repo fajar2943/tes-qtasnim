@@ -5,11 +5,16 @@
     {{Session::get('success')}}
 </div>
 @endif
+@if (Session::has('message'))
+    <div class="alert alert-warning" role="alert">
+        {{Session::get('message')}}
+    </div>
+@endif
 <div class="p-3 mb-4 bg-light rounded-3">
     <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-4">
-                <form action="/transactions" method="get">
+        <form action="" id="form-filter">
+            <div class="row">
+                <div class="col-md-4">
                     <small>Searching</small>
                     <div class="input-group">
                         <input type="text" name="search" id="search" class="form-control" placeholder="Enter Key">
@@ -19,32 +24,26 @@
                             <option value="product_name">Product Name</option>
                             <option value="date">Date</option>
                         </select>
-                        <button class="btn btn-outline-secondary" type="submit"><i class="fa fa-search"
-                                aria-hidden="true"></i> </button>
                     </div>
-                </form>
-            </div>
-            <div class="col-md-4">
-                <form action="/transactions" method="get">
-                    <small>Shorting</small>
+                </div>
+                <div class="col-md-4">
+                    <small>Shorting From Date - Until Date</small>
                     <div class="input-group">
-                        <input type="date" name="from" class="form-control" placeholder="From Date">
-                        <input type="date" name="until" class="form-control" placeholder="Until Date">
-                        <select class="btn btn-outline-secondary" name="short">
+                        <input type="date" name="from" id="from" class="form-control" placeholder="From Date">
+                        <input type="date" name="until" id="until" class="form-control" placeholder="Until Date">
+                        <select class="btn btn-outline-secondary" name="short" id="short">
                             <option value="">Short by</option>
                             <option value="desc">Highest Sales</option>
                             <option value="asc">Lowest Sales</option>
                         </select>
-                        <button class="btn btn-outline-secondary" type="submit"><i class="fa fa-search"
-                                aria-hidden="true"></i> </button>
                     </div>
-                </form>
+                </div>
+                <div class="col-md-2 text-end">
+                    <br>
+                    <a href="/transactions" class="btn btn-secondary">Reset Filter</a>
+                </div>
             </div>
-            <div class="col-md-2 text-end">
-                <br>
-                <a href="/transactions" class="btn btn-secondary">Reset Filter</a>
-            </div>
-        </div>
+        </form>
     </div>
 </div>
 <div class="row align-items-md-stretch">
@@ -56,16 +55,18 @@
                     <tr>
                         <th>#</th>
                         <th>Product Name</th>
+                        <th>Category</th>
                         <th>Total Sales</th>
                         <th>Transaction Date</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tbody">
                     @foreach ($transactions as $transaction)
                     <tr>
                         <td>{{ $loop->iteration}}</td>
                         <td>{{$transaction->product->name}}</td>
+                        <td>{{$transaction->product->category->name}}</td>
                         <td>{{$transaction->total_sales}}</td>
                         <td>{{date('d M Y', strtotime($transaction->date))}}</td>
                         <td>
@@ -87,7 +88,7 @@
                 <label for="product_id" class="form-label">Product</label>
                 <select class="form-select mb-3" name="product_id" id="product_id" aria-label="Default select example">
                     @foreach ($products as $product)
-                    <option value="{{$product->id}}">{{$product->name}}</option>
+                    <option value="{{$product->id}}">{{$product->name}} ({{$product->category->name}})</option>
                     @endforeach
                 </select>
                 <div class="mb-3">
@@ -128,6 +129,15 @@
 
     $('.btn-edit').on('click', function () {
         let id = $(this).data('id');
+        editTransaction(id)
+    })
+
+    $('.btn-delete').on('click', function(){
+        let id = $(this).data('id');
+        deleteTransaction(id)
+    })
+
+    function editTransaction(id){
         $('#form-edit').attr('action', '/transactions/update');
         $.ajax({
             url: `/transactions/${id}/edit`,
@@ -140,14 +150,71 @@
                 alert('Something wrong!')
             }
         })
-    })
-
-    $('.btn-delete').on('click', function(){
-        let id = $(this).data('id');
+    }
+    function deleteTransaction(id){
         $('#form-delete').attr('action', `/transactions/destroy`);
         $('#id_delete').val(id);
         $('#modal-delete').modal('show');
+    }
+
+    $('#search').keyup(function(){
+        filter()
     })
+    $('#search').on('change',function(){
+        filter()
+    })
+    $('#type').on('change',function(){
+        filter()
+    })
+    $('#from').on('change',function(){
+        filter()
+    })
+    $('#until').on('change',function(){
+        filter()
+    })
+    $('#short').on('change',function(){
+        filter()
+    })
+
+    function filter(){
+        let search = ($('#search').val()) ?  $('#search').val() : '';
+        let type = ($('#type').val()) ?  $('#type').val() : '';
+        let from = ($('#from').val()) ?  $('#from').val() : '';
+        let until = ($('#until').val()) ?  $('#until').val() : '';
+        let short = ($('#short').val()) ?  $('#short').val() : '';
+
+        if((search != '' && type != '') || (from != '' && until != '') || short != ''){
+            if(from > until && from != '' && until != ''){
+                alert('from date must be earlier than until date')
+            }
+            $.ajax({
+                url: `/transactions/filters?search=${search}&type=${type}&from=${from}&until=${until}&short=${short}`,
+                method: "GET",
+                success: function (data) {
+                    $('#tbody').empty();
+                    $.each(data, function (key, value) {
+                        $('#tbody').append(`
+                        <tr>
+                            <td>${key += 1}</td>
+                            <td>${value.product_name}</td>
+                            <td>${value.category_name}</td>
+                            <td>${value.total_sales}</td>
+                            <td>${value.date_convert}</td>
+                            <td>
+                                <a class="btn btn-edit badge rounded-pill bg-light text-dark" onclick="editTransaction(${value.id})"
+                                    data-id="${value.id}">Edit</a>
+                                <a class="btn btn-delete badge rounded-pill bg-danger text-light" onclick="deleteTransaction(${value.id})" data-id="${value.id}">Delete</a>
+                            </td>
+                        </tr>
+                        `);
+                    });
+                },
+                error: function (error) {
+                    alert('Something wrong!')
+                }
+            })
+        }
+    }
 
 </script>
 @endpush

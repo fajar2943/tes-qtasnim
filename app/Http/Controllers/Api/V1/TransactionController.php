@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\TransactionCollection;
 use App\Http\Resources\Api\V1\TransactionResource;
+use App\Models\Product;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,6 +41,11 @@ class TransactionController extends Controller
 
     public function store(Request $request){
         $this->_validation($request);
+        $product = Product::find($request->product_id);
+        if($product->stock < $request->total_sales){
+            return redirect()->back()->with('message', 'sorry the remaining stock is '.$product->stock. ', Data uncreated!');          
+        }
+        $product->update(['stock' => $product->stock - $request->total_sales]);
         $transaction = Transaction::create($request->all());
         return response()->json([
             'message' => 'Success, Create transaction data!',
@@ -66,6 +72,21 @@ class TransactionController extends Controller
     public function update(Request $request){
         $this->_validation($request);
         $transaction = Transaction::find($request->id);
+        $product = Product::find($request->product_id);
+        if($request->product_id == $transaction->product_id){
+            $stock = $transaction->total_sales - $request->total_sales + $product->stock;
+            if($stock < 0){
+                return redirect()->back()->with('message', 'sorry the remaining stock is '.$product->stock. ', Data uncreated!');
+            }
+        }else{
+            $stock = $product->stock - $request->total_sales;
+            if($stock < 0){
+                return redirect()->back()->with('message', 'sorry the remaining stock is '.$product->stock. ', Data uncreated!');
+            }
+            $oldProduct = Product::find($transaction->product_id);
+            $oldProduct->update(['stock' => $oldProduct->stock + $transaction->total_sales]);
+        }
+        $product->update(['stock' => $stock]);
         $transaction->update([
             'product_id' => $request->product_id,
             'total_sales' => $request->total_sales,
@@ -79,6 +100,8 @@ class TransactionController extends Controller
 
     public function destroy(Request $request){
         $transaction = Transaction::find($request->id);
+        $product = Product::find($transaction->product_id);
+        $product->update(['stock' => $product->stock + $transaction->total_sales]);
         $transaction->delete();
         return response()->json([
             'message' => 'Success, Transaction deleted!'
